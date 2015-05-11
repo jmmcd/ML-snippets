@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 
-"""Density-based one-class classification, built using scikit-learn,
+# Copyright 2015 James McDermott <jmmcd@jmmcd.net>
+
+# Hereby licensed under the GPL v2 or any later version.
+
+
+"""
+Density-based one-class classification, built using scikit-learn,
 numpy and scipy components. This is mostly for educational porpoises.
 
 One-class classification (OCC) is about training on a single class,
