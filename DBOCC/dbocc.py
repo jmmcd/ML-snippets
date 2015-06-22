@@ -71,7 +71,7 @@ class CentroidBasedOneClassClassifier:
         dists = np.mean(dists, axis=1)
         return dists
 
-    def classify(self, X):
+    def predict(self, X):
         dists = self.get_density(X)
         return dists > self.abs_threshold
 
@@ -168,15 +168,15 @@ class DensityBasedOneClassClassifier:
         # in negative log-prob (for KDE), in negative distance (for NegativeMeanDistance)
         return self.dens.score_samples(X)
 
-    def classify(self, X):
+    def predict(self, X):
         dens = self.get_density(X)
         return dens < self.abs_threshold # in both KDE and NMD, lower values are more anomalous
 
     def downsample(self, X, n):
         # we've already fit()ted, but we're worried that our X is so
         # large our classifier will be too slow in practice. we can
-        # downsample by running a kde on X (this will be slow, but
-        # happens only once), sampling from it, and then using those
+        # downsample by running a kde on X and sampling from it (this
+        # will be slow, but happens only once), and then using those
         # points as the new X.
         if len(X) < n:
             return X
@@ -263,13 +263,13 @@ def test():
         plt.savefig("hist_" + k + ".png")
         plt.close()
 
-        yhat = c.classify(test_X)
+        yhat = c.predict(test_X)
         acc = np.mean(yhat == test_y)
 
         # thanks Loi!
-        yhat_X0 = c.classify(test_X0)
+        yhat_X0 = c.predict(test_X0)
         acc_X0 = np.mean(yhat_X0 == False)
-        yhat_X1 = c.classify(test_X1)
+        yhat_X1 = c.predict(test_X1)
         acc_X1 = np.mean(yhat_X1 == True)
 
         print "acc: %.2f" % acc
