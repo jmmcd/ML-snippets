@@ -26,9 +26,6 @@ similarity between points, a distance is a measure of dissimilarity.
 Centroid: a new point is classified as an anomaly if its distance to
 the centroid of the training set is large.
 
-TODO calculate sensitivity/specificity rather than just
-classification accuracy.
-
 """
 
 from sklearn import preprocessing
@@ -232,7 +229,16 @@ def test():
 
         yhat = c.classify(test_X)
         acc = np.mean(yhat == test_y)
+
+        # thanks Loi!
+        yhat_X0 = c.classify(test_X0)
+        acc_X0 = np.mean(yhat_X0 == False)
+        yhat_X1 = c.classify(test_X1)
+        acc_X1 = np.mean(yhat_X1 == True)
+
         print "acc: %.2f" % acc
-        print
+        print "acc X0: %.2f" % acc_X0
+        print "acc X1: %.2f" % acc_X1
+        print 
 
 test()
