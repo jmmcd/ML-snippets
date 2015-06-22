@@ -36,22 +36,81 @@ import numpy as np
 np.seterr(all='raise')
 import scipy.spatial
 
+
+class CentroidBasedOneClassClassifier:
+    """A simple classifier for one-class classification: standardise
+    the data so that its mean is all zeros, then establish a threshold
+    so as to contain (eg) 95% of the training data. Then new points at
+    a distance larger than the threshold are classified as
+    anomalies. One of the motivations is that it will be extremely
+    fast both at training and classification time."""
+    
+    def __init__(self, threshold=0.95, metric="euclidean"):
+        self.threshold = threshold
+        self.scaler = preprocessing.StandardScaler()
+        self.metric = metric
+
+    def fit(self, X):
+        # scale
+        self.scaler.fit(X)
+        X = self.scaler.transform(X)
+
+        # because we are using StandardScaler, the centroid is a
+        # vector of zeros, but we save it in shape (1, n) to allow
+        # cdist to work happily later.
+        self.centroid = np.zeros((1, X.shape[1]))
+
+        # transform relative threshold (eg 95%) to absolute
+        dists = self.get_density(X, scale=False) # no need to scale again
+        self.abs_threshold = np.percentile(dists, 100 * self.threshold)
+
+    def get_density(self, X, scale=True):
+        if scale:
+            X = self.scaler.transform(X)
+        dists = scipy.spatial.distance.cdist(X, self.centroid, metric=self.metric)
+        dists = np.mean(dists, axis=1)
+        return dists
+
+    def classify(self, X):
+        dists = self.get_density(X)
+        return dists > self.abs_threshold
+
+
+class NegativeMeanDistance:
+    """A small helper class which emulates the behaviour of KDE, but
+    using negative mean distance. We use distance because it can
+    behave slightly differently to a kernel: in particular, note that
+    a so-called linear kernel is only linear within the bandwidth, but
+    goes non-linearly to zero outside. We use negative distance to
+    preserve the sense, ie lower numbers are more anomalous, because a
+    kernel is a similarity while a distance is a dissimilarity."""
+    
+    def __init__(self, metric="euclidean"):
+        self.metric = metric
+        
+    def fit(self, X):
+        self.X = X
+        
+    def score_samples(self, X):
+        dists = scipy.spatial.distance.cdist(X, self.X, metric=self.metric)
+        return -np.mean(dists, axis=1)
+
+
 class DensityBasedOneClassClassifier:
-    """A classifier for one-class classification based on estimating the
-    density of the training set.
+    """A classifier for one-class classification based on estimating
+    the density of the training set.
 
-    We provide three approaches to OCC, as described above, so the
-    `approach` keyword can take three values: "kernel", "distance", or
-    "centroid". "kernel" does kernel density estimation (using the
-    `kernel` and `bandwidth` parameters). "distance" does mean
-    distance against the training set. "centroid" approximates the
-    training set with a single point.
+    There are two approaches as described above, kernel density
+    estimation (using the `kernel` and `bandwidth` parameters), and
+    distance (negative mean distance) against the training set.
 
-    `kernel` is the name of a kernel -- "gaussian", "linear",
-    "tophat", "epanechnikov", "exponential", or "cosine", as accepted
-    by KernelDensity. `bandwidth` is a parameter to that kernel. If
-    you use "tophat" the effect is that density is defined as the
-    number of points within a given radius.
+    To use the distance approach, pass
+    `kernel="really_linear"`. Otherwise, `kernel` is the name of a
+    kernel -- "gaussian", "linear", "tophat", "epanechnikov",
+    "exponential", or "cosine", as accepted by
+    KernelDensity. `bandwidth` is a parameter to that kernel. If you
+    use "tophat" the effect is that density is defined as the number
+    of points within a given radius.
 
     `metric` is the name of a metric as accepted by KernelDensity or
     by scipy.spatial.cdist, eg "euclidean".
@@ -64,33 +123,28 @@ class DensityBasedOneClassClassifier:
     A big drawback of kernel density estimation is that if you have a
     lot of training data, you have to store it all and calculate
     against it all during classification -- not just during training
-    time. This is also true of the "distance" approach. The "centroid"
-    approach avoids this, of course. Another possibility is to
-    downsample -- fit a KDE with the training data, then draw a
-    smaller number of samples from that, and use that as your training
-    data. This will save time at classification time. However, I
-    haven't tested whether it really works or not.
-    `should_downsample` and `downsample_count` are the parameters for
-    it.
+    time. This is also true of the "distance" approach. The centroid
+    approach above avoids this. Another possibility is to downsample
+    -- fit a KDE with the training data, then draw a smaller number of
+    samples from that, and use that as your training data. This will
+    save time at classification time. However, I haven't tested
+    whether it really works or not.  `should_downsample` and
+    `downsample_count` are the parameters for it.
 
     """
 
-    def __init__(self, threshold=0.95, approach="kernel",
-                 bandwidth=1.0, kernel="gaussian", metric="euclidean",
+    def __init__(self, threshold=0.95, kernel="gaussian", bandwidth=1.0,
+                 metric="euclidean",
                  should_downsample=False, downsample_count=1000):
-        # check for incompatible options:
-        if should_downsample and approach == "centroid":
-            raise ValueError
 
         self.should_downsample = should_downsample
         self.downsample_count = downsample_count
         self.threshold = threshold
         self.scaler = preprocessing.StandardScaler()
-        self.approach = approach
-        if self.approach == "kernel":
-            self.kde = KernelDensity(bandwidth=bandwidth, kernel=kernel, metric=metric)
+        if kernel == "really_linear":
+            self.dens = NegativeMeanDistance(metric=metric)
         else:
-            self.metric = metric
+            self.dens = KernelDensity(bandwidth=bandwidth, kernel=kernel, metric=metric)
 
     def fit(self, X):
         # scale
@@ -102,39 +156,21 @@ class DensityBasedOneClassClassifier:
             self.X = self.downsample(self.X, self.downsample_count)
 
         # fit
-        if self.approach == "kernel":
-            self.kde.fit(self.X)
-        elif self.approach == "centroid":
-            # because we are using StandardScaler, the centroid is a
-            # vector of zeros. we save it as an (n, 1) vector under
-            # the name X because that way we can share code later
-            # between centroid and distance approaches
-            self.X = np.zeros((1, self.X.shape[1]))
+        self.dens.fit(self.X)
 
         # transform relative threshold (eg 95%) to absolute
-        if self.approach == "kernel":
-            dens = self.get_density(self.X, scale=False) # no need to scale again
-            self.abs_threshold = np.percentile(dens, 100 * (1 - self.threshold))
-        else:
-            dists = self.get_density(self.X, scale=False) # no need to scale again
-            self.abs_threshold = np.percentile(dists, 100 * self.threshold)
+        dens = self.get_density(self.X, scale=False) # no need to scale again
+        self.abs_threshold = np.percentile(dens, 100 * (1 - self.threshold))
 
     def get_density(self, X, scale=True):
         if scale:
             X = self.scaler.transform(X)
-        if self.approach == "kernel":
-            return self.kde.score_samples(X) # in negative log-prob
-        else:
-            dists = scipy.spatial.distance.cdist(X, self.X, metric=self.metric)
-            return np.mean(dists, axis=1)
+        # in negative log-prob (for KDE), in negative distance (for NegativeMeanDistance)
+        return self.dens.score_samples(X)
 
     def classify(self, X):
-        if self.approach == "kernel":
-            dens = self.get_density(X)
-            return dens < self.abs_threshold
-        else:
-            dists = self.get_density(X)
-            return dists > self.abs_threshold
+        dens = self.get_density(X)
+        return dens < self.abs_threshold # in both KDE and NMD, lower values are more anomalous
 
     def downsample(self, X, n):
         # we've already fit()ted, but we're worried that our X is so
@@ -212,9 +248,9 @@ def test():
     test_X1 = test_X[test_y]
 
     cs = {
-        "density": DensityBasedOneClassClassifier(approach="kernel", bandwidth=2, kernel="gaussian", metric="euclidean"),
-        "distance": DensityBasedOneClassClassifier(approach="distance"),
-        "centroid": DensityBasedOneClassClassifier(approach="centroid")
+        "density": DensityBasedOneClassClassifier(bandwidth=2, kernel="gaussian", metric="euclidean"),
+        "distance": DensityBasedOneClassClassifier(kernel="really_linear"),
+        "centroid": CentroidBasedOneClassClassifier()
     }
 
     for k in cs:
