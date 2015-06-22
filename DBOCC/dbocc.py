@@ -123,7 +123,8 @@ class DensityBasedOneClassClassifier:
             self.abs_threshold = np.percentile(dists, 100 * self.threshold)
 
     def get_density(self, X, scale=True):
-        X = self.scaler.transform(X)
+        if scale:
+            X = self.scaler.transform(X)
         if self.approach == "kernel":
             return self.kde.score_samples(X) # in negative log-prob
         else:
