@@ -105,7 +105,7 @@ class DensityBasedOneClassClassifier:
     distance (negative mean distance) against the training set.
 
     To use the distance approach, pass
-    `kernel="really_linear"`. Otherwise, `kernel` is the name of a
+    `kernel="linear_pseudo_kernel"`. Otherwise, `kernel` is the name of a
     kernel -- "gaussian", "linear", "tophat", "epanechnikov",
     "exponential", or "cosine", as accepted by
     KernelDensity. `bandwidth` is a parameter to that kernel. If you
@@ -141,7 +141,7 @@ class DensityBasedOneClassClassifier:
         self.downsample_count = downsample_count
         self.threshold = threshold
         self.scaler = preprocessing.StandardScaler()
-        if kernel == "really_linear":
+        if kernel == "linear_pseudo_kernel":
             self.dens = NegativeMeanDistance(metric=metric)
         else:
             self.dens = KernelDensity(bandwidth=bandwidth, kernel=kernel, metric=metric)
@@ -247,20 +247,22 @@ def test():
     test_X0 = test_X[~test_y]
     test_X1 = test_X[test_y]
 
-    cs = {
-        "density": DensityBasedOneClassClassifier(bandwidth=2, kernel="gaussian", metric="euclidean"),
-        "distance": DensityBasedOneClassClassifier(kernel="really_linear"),
-        "centroid": CentroidBasedOneClassClassifier()
-    }
+    cnames = ["density", "distance", "centroid"]
+    cs = [
+        DensityBasedOneClassClassifier(bandwidth=2,
+                                       kernel="gaussian",
+                                       metric="euclidean"),
+        DensityBasedOneClassClassifier(kernel="linear_pseudo_kernel"),
+        CentroidBasedOneClassClassifier()
+    ]
 
-    for k in cs:
-        print k
-        c = cs[k]
+    for cname, c in zip(cnames, cs):
+        print cname
         c.fit(train_X)
         d0 = c.get_density(test_X0)
         d1 = c.get_density(test_X1)
         plt.hist((d0, d1), bins=30)
-        plt.savefig("hist_" + k + ".png")
+        plt.savefig("hist_" + cname + ".png")
         plt.close()
 
         yhat = c.predict(test_X)
