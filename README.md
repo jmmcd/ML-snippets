@@ -11,12 +11,21 @@ Contents:
 
 * DBOCC: density-based one-class classification
 
-One-class classification is also known as anomaly detection. It's
-about training a classifier when you only have one set of data -- no
-labels. We can do it be learning the density (or similar concepts) of
-the data, and then applying a threshold -- new points are classed as
-anomalies if they lie in regions where the training data is of low
-density. This code implements three related approaches to OCC, and is
-built in Python using Numpy, Scipy, and Scikit-learn components.
+  One-class classification is also known as anomaly detection. It's
+  about training a classifier when you only have one set of data -- no
+  labels. We can do it be learning the density (or similar concepts)
+  of the data, and then applying a threshold -- new points are classed
+  as anomalies if they lie in regions where the training data is of
+  low density. This code implements three related approaches to OCC,
+  and is built in Python using Numpy, Scipy, and Scikit-learn
+  components.
 
-(Written by me.)
+  (Written by me.)
+
+* Liver: simple contingency table, predict majority, and logistic
+  regression on the well-known BUPA Liver Disorders dataset. There has
+  been a widespread misconception that the final variable indicates
+  presence or absence of a liver disorder in the subjects. In fact,
+  the final variable is just a train/test selector. Richard Forsyth
+  and I wrote an article discussing the issue. This (very simple) code
+  is part of that. 
