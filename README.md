@@ -29,3 +29,8 @@ Contents:
   the final variable is just a train/test selector. Richard Forsyth
   and I wrote an article discussing the issue. This (very simple) code
   is part of that. 
+
+* Uniform In Hypersphere: generate vectors uniformly distributed in a
+  hypersphere of given dimension. Two methods are supplied, which are
+  similar but not identical. One, from Tax and Duin 2001, corrects
+  what I think is an error in the original.
