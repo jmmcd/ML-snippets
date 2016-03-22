@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 # Copyright 2015 James McDermott <jmmcd@jmmcd.net>
 
@@ -14,10 +15,16 @@ the "normal" class, usually because that's all that's available, but
 then using the trained model to classify new data as either normal or
 anomaly.
 
-We provide three approaches to OCC:
+We provide four approaches to OCC:
+
+Independent density estimation: a new point is classified as an
+anomaly if it is in a low-density region, where each feature is
+modelled with a Gaussian, and density is the product of each feature's
+density.
 
 Kernel density estimation: a new point is classified as an anomaly if
-it is in a low-density region.
+it is in a low-density region, where the full joint distribution is
+modelled using kernel density.
 
 Mean distance: a new point is classified as an anomaly if its mean
 distance to the training set is large. Where a kernel is a measure of
@@ -61,10 +68,10 @@ class CentroidBasedOneClassClassifier:
         self.centroid = np.zeros((1, X.shape[1]))
 
         # transform relative threshold (eg 95%) to absolute
-        dists = self.get_density(X, scale=False) # no need to scale again
+        dists = self.score_samples(X, scale=False) # no need to scale again
         self.abs_threshold = np.percentile(dists, 100 * self.threshold)
 
-    def get_density(self, X, scale=True):
+    def score_samples(self, X, scale=True):
         if scale:
             X = self.scaler.transform(X)
         dists = scipy.spatial.distance.cdist(X, self.centroid, metric=self.metric)
@@ -72,8 +79,32 @@ class CentroidBasedOneClassClassifier:
         return dists
 
     def predict(self, X):
-        dists = self.get_density(X)
+        dists = self.score_samples(X)
         return dists > self.abs_threshold
+
+
+class IndependenceOneClassClassifier:
+    """A simple classifier for one-class classification. Model density as
+    a product of independent Gaussians. Fit each Gaussian with a mean
+    and sd. New points of low density are classed as anomalies."""
+    
+    def __init__(self, threshold=0.95):
+        self.threshold = threshold
+        
+    def fit(self, X):
+        self.mu = np.mean(X, axis=0)
+        self.sigmasq = np.std(X, axis=0)
+        
+        # transform relative threshold (eg 95%) to absolute
+        dens = self.score_samples(X)
+        self.abs_threshold = np.percentile(dens, 100 * (1 - self.threshold))
+        
+    def score_samples(self, X):
+        return np.product(list(scipy.stats.norm.pdf(xi, loc=mui, scale=sigmasqi)
+                    for xi, mui, sigmasqi in zip(X.T, self.mu, self.sigmasq)), axis=0)
+        
+    def predict(self, X):
+        return self.score_samples(X) < self.abs_threshold
 
 
 class NegativeMeanDistance:
@@ -159,17 +190,17 @@ class DensityBasedOneClassClassifier:
         self.dens.fit(self.X)
 
         # transform relative threshold (eg 95%) to absolute
-        dens = self.get_density(self.X, scale=False) # no need to scale again
+        dens = self.score_samples(self.X, scale=False) # no need to scale again
         self.abs_threshold = np.percentile(dens, 100 * (1 - self.threshold))
 
-    def get_density(self, X, scale=True):
+    def score_samples(self, X, scale=True):
         if scale:
             X = self.scaler.transform(X)
         # in negative log-prob (for KDE), in negative distance (for NegativeMeanDistance)
         return self.dens.score_samples(X)
 
     def predict(self, X):
-        dens = self.get_density(X)
+        dens = self.score_samples(X)
         return dens < self.abs_threshold # in both KDE and NMD, lower values are more anomalous
 
     def downsample(self, X, n):
@@ -247,8 +278,9 @@ def test():
     test_X0 = test_X[~test_y]
     test_X1 = test_X[test_y]
 
-    cnames = ["density", "distance", "centroid"]
+    cnames = ["ind_density", "kde_density", "distance", "centroid"]
     cs = [
+        IndependenceOneClassClassifier(),
         DensityBasedOneClassClassifier(bandwidth=2,
                                        kernel="gaussian",
                                        metric="euclidean"),
@@ -257,10 +289,10 @@ def test():
     ]
 
     for cname, c in zip(cnames, cs):
-        print cname
+        print(cname)
         c.fit(train_X)
-        d0 = c.get_density(test_X0)
-        d1 = c.get_density(test_X1)
+        d0 = c.score_samples(test_X0)
+        d1 = c.score_samples(test_X1)
         plt.hist((d0, d1), bins=30)
         plt.savefig("hist_" + cname + ".png")
         plt.close()
@@ -274,9 +306,9 @@ def test():
         yhat_X1 = c.predict(test_X1)
         acc_X1 = np.mean(yhat_X1 == True)
 
-        print "acc: %.2f" % acc
-        print "acc X0: %.2f" % acc_X0
-        print "acc X1: %.2f" % acc_X1
-        print 
+        print("acc: %.2f" % acc)
+        print("acc X0: %.2f" % acc_X0)
+        print("acc X1: %.2f" % acc_X1)
+        print() 
 
 test()
