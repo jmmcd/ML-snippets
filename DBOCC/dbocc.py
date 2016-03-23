@@ -1,10 +1,7 @@
 #!/usr/bin/env python
-from __future__ import print_function
 
 # Copyright 2015-2016 James McDermott <jmmcd@jmmcd.net>
-
 # Hereby licensed under the GPL v2 or any later version.
-
 
 """Density-based one-class classification, built using scikit-learn,
 numpy and scipy components. This is mostly for educational porpoises.
@@ -48,27 +45,30 @@ There are several approaches to modelling density:
 
 """
 
+from __future__ import print_function
+
 from sklearn import preprocessing
 from sklearn.neighbors import KernelDensity
-from sklearn.metrics import roc_curve
-import matplotlib.pyplot as plt
 import numpy as np
 np.seterr(all='raise')
 import scipy.spatial
 import scipy.io
+import scipy.stats
+import matplotlib.pyplot as plt
 
 class SingleGaussianDensity:
     """A helper class which behaves like KDE, but models density as a
     Gaussian over the distance from the centroid. To be useful, the
     user needs to standardise features to have equal variance."""
-    
+
     def __init__(self, metric="euclidean"):
+        self.mu = None
         self.metric = metric
-        
+
     def fit(self, X):
         self.mu = np.mean(X, axis=0)
         self.mu.shape = (1, len(self.mu))
-        
+
     def score_samples(self, X):
         # distance from the mean
         dists = scipy.spatial.distance.cdist(X, self.mu, metric=self.metric)
@@ -79,32 +79,32 @@ class SingleGaussianDensity:
 class IndependentGaussiansDensity:
     """A helper class which behaves like KDE, but models density as a
     product of independent Gaussians."""
-    
+
     def fit(self, X):
         self.mu = np.mean(X, axis=0)
         self.sigmasq = np.std(X, axis=0)
-        
+
     def score_samples(self, X):
         return np.product(
             list(scipy.stats.norm.pdf(xi, loc=mui, scale=sigmasqi)
                  for xi, mui, sigmasqi in
                  zip(X.T, self.mu, self.sigmasq)), axis=0)
-        
+
 class MultivariateGaussianDensity:
     """A helper class which behaves like KDE, but models density with a
     single multivariate Gaussian."""
-    
+
     def fit(self, X):
         self.mu = np.mean(X, axis=0)
         self.Sigma = np.cov(X, rowvar=0)
-        
+
     def score_samples(self, X):
         result = scipy.stats.multivariate_normal.pdf(X, mean=self.mu, cov=self.Sigma)
         if X.shape[0] == 1:
             # multivariate_normal.pdf seems to squeeze, so we unsqueeze
             result = np.array([result])
         return result
-    
+
 class NegativeMeanDistance:
     """A helper class which behaves like KDE, but models "density" as
     negative mean distance. Distance behaves slightly differently to a
@@ -113,13 +113,13 @@ class NegativeMeanDistance:
     distance to preserve the sense, ie lower numbers are more
     anomalous, because a kernel is a similarity while a distance is a
     dissimilarity."""
-    
+
     def __init__(self, metric="euclidean"):
         self.metric = metric
-        
+
     def fit(self, X):
         self.X = X
-        
+
     def score_samples(self, X):
         dists = scipy.spatial.distance.cdist(X, self.X, metric=self.metric)
         return -np.mean(dists, axis=1)
@@ -132,7 +132,7 @@ class DensityBasedOneClassClassifier:
     The `dens` parameter is a density object, such as the
     IndependentGaussiansDensity above, or the KernelDensity from
     sklearn.
-    
+
     The `threshold` parameter sets the proportion of the (normal)
     training data which should be classified as normal.
 
@@ -153,7 +153,7 @@ class DensityBasedOneClassClassifier:
         # scale
         self.scaler.fit(X)
         X = self.scaler.transform(X)
-            
+
         # fit
         self.dens.fit(X)
 
@@ -176,23 +176,23 @@ class DensityBasedOneClassClassifier:
 def toy_data():
     # normal training set
     X = np.array([
-        [ 1.0, 1.0],
-        [ 1.1, 1.1],
-        [ 1.0, 1.2],
-        [ 1.1, 1.3],
-        [ 1.0, 1.1],
-        [ 1.4, 1.1],
-        [ 1.1, 1.2]
+        [1.0, 1.0],
+        [1.1, 1.1],
+        [1.0, 1.2],
+        [1.1, 1.3],
+        [1.0, 1.1],
+        [1.4, 1.1],
+        [1.1, 1.2]
     ])
 
     # test set with some normal, some anomaly
     X_test = np.array([
-        [ 1.1, 1.1],
-        [ 1.0, 1.2],
-        [ 1.1, 1.3],
-        [ 1.0, 1.1],
-        [ 1.1, 1.35],
-        [ 1.6, 0.9]
+        [1.1, 1.1],
+        [1.0, 1.2],
+        [1.1, 1.3],
+        [1.0, 1.1],
+        [1.1, 1.35],
+        [1.6, 0.9]
     ])
     # labels for test set
     y_test = np.array([False, False, False, False, False, True])
@@ -208,8 +208,8 @@ def process_wbcd():
     # shuffle
     np.random.seed(0)
     np.random.shuffle(d)
-    dX = d[:,1:-1] # discard the first column (ids) and the last (labels)
-    dy = d[:,-1]
+    dX = d[:, 1:-1] # discard the first column (ids) and the last (labels)
+    dy = d[:, -1]
     dy = dy > 2.5 # in wdbc, 2 = benign, 4 = malignant
 
     # separate into normal and anomaly
@@ -243,12 +243,12 @@ def process_server():
     test_y = d["yval"].astype('bool') # Matlab saves as ints
     test_y.shape = (test_y.shape[0],) # of shape (100, 1)
     return train_X, test_X, test_y
-    
+
 def test():
 
     # several functions that will give us a dataset (X_train, X_test, y_test)
     fns = (toy_data, process_wbcd, process_server)
-    
+
     for data_fn in fns:
         print(data_fn.__name__)
         print("-----------------")
@@ -263,7 +263,7 @@ def test():
             KernelDensity,
             NegativeMeanDistance
         ]
-        
+
         for dens in denss:
             c = DensityBasedOneClassClassifier(dens=dens())
             print(dens.__name__)
@@ -289,6 +289,6 @@ def test():
             print("acc: %.2f" % acc)
             print("acc X0: %.2f" % acc_X0)
             print("acc X1: %.2f" % acc_X1)
-            print() 
+            print()
 
 test()
