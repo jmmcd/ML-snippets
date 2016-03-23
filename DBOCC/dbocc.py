@@ -33,11 +33,18 @@ There are several approaches to modelling density:
  matrix. See eg Andrew Ng Stanford ML course for the maths.
 
 -Kernel density estimation (KDE): here the full joint distribution is
- modelled using kernel density.
+ modelled using kernel density. This is provided by Scikit-learn. For
+ this option, we can choose the kernel and its parameters. The
+ Gaussian kernel is the most common. To use "number of neighbours
+ within a given distance" we can use the tophat kernel.
 
-Within KDE, we can choose the kernel and its parameters. To emulate
-Cuong To and Elati (GECCO 2013), we can use a linear "pseudo kernel",
-which is just the negative distance.
+-To emulate Cuong To and Elati (GECCO 2013), we can use Negative Mean
+ Distance. This has the same effect as KDE with a linear "pseudo
+ kernel" calculated as the negative distance between the test point
+ and each train point. It is distinct from a true linear kernel,
+ because a linear kernel goes to zero (non-linearly) outside the
+ bandwidth. We use negative distance to preserve the sense (a kernel
+ is a similarity, whereas a distance is a dissimilarity).
 
 """
 
@@ -122,25 +129,13 @@ class DensityBasedOneClassClassifier:
     """A classifier for one-class classification based on estimating
     the density of the training set.
 
-    Approaches to modelling density: single_gaussian,
-    independent_gaussians, multivariate_gaussian, kernel.
-
-    For kernel density, can also pass the kernel and bandwidth
-    parameters.
-
-    To use the negative mean distance approach, pass
-    `kernel="linear_pseudo_kernel"`. Otherwise, `kernel` is the name
-    of a kernel -- "gaussian", "linear", "tophat", "epanechnikov",
-    "exponential", or "cosine", as accepted by
-    KernelDensity. `bandwidth` is a parameter to that kernel. If you
-    use "tophat" the effect is that density is defined as the number
-    of points within a given radius.
-
-    `metric` is the name of a metric as accepted by KernelDensity or
-    by scipy.spatial.cdist, eg "euclidean".
-
+    The `dens` parameter is a density object, such as the
+    IndependentGaussiansDensity above, or the KernelDensity from
+    sklearn.
+    
     The `threshold` parameter sets the proportion of the (normal)
     training data which should be classified as normal.
+
     """
 
     def __init__(self,
