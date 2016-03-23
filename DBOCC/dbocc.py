@@ -54,11 +54,14 @@ class SingleGaussianDensity:
     """A helper class which behaves like KDE, but models density as a
     Gaussian over the distance from the centroid. To be useful, the
     user needs to standardise features to have equal variance."""
+    
     def __init__(self, metric="euclidean"):
         self.metric = metric
+        
     def fit(self, X):
         self.mu = np.mean(X, axis=0)
         self.mu.shape = (1, len(self.mu))
+        
     def score_samples(self, X):
         # distance from the mean
         dists = scipy.spatial.distance.cdist(X, self.mu, metric=self.metric)
@@ -69,9 +72,11 @@ class SingleGaussianDensity:
 class IndependentGaussiansDensity:
     """A helper class which behaves like KDE, but models density as a
     product of independent Gaussians."""
+    
     def fit(self, X):
         self.mu = np.mean(X, axis=0)
         self.sigmasq = np.std(X, axis=0)
+        
     def score_samples(self, X):
         return np.product(
             list(scipy.stats.norm.pdf(xi, loc=mui, scale=sigmasqi)
@@ -81,9 +86,11 @@ class IndependentGaussiansDensity:
 class MultivariateGaussianDensity:
     """A helper class which behaves like KDE, but models density with a
     single multivariate Gaussian."""
+    
     def fit(self, X):
         self.mu = np.mean(X, axis=0)
         self.Sigma = np.cov(X, rowvar=0)
+        
     def score_samples(self, X):
         result = scipy.stats.multivariate_normal.pdf(X, mean=self.mu, cov=self.Sigma)
         if X.shape[0] == 1:
@@ -143,7 +150,7 @@ class DensityBasedOneClassClassifier:
         self.threshold = threshold
         self.scaler = preprocessing.StandardScaler()
         if dens:
-            self.dens = dens()
+            self.dens = dens
         else:
             self.dens = IndependentGaussiansDensity()
 
@@ -263,7 +270,7 @@ def test():
         ]
         
         for dens in denss:
-            c = DensityBasedOneClassClassifier(dens=dens)
+            c = DensityBasedOneClassClassifier(dens=dens())
             print(dens.__name__)
             c.fit(train_X)
 
