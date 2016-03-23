@@ -6,9 +6,7 @@ from __future__ import print_function
 # Hereby licensed under the GPL v2 or any later version.
 
 
-"""
-
-Density-based one-class classification, built using scikit-learn,
+"""Density-based one-class classification, built using scikit-learn,
 numpy and scipy components. This is mostly for educational porpoises.
 
 One-class classification (OCC) is about training on a single class,
@@ -16,27 +14,30 @@ the "normal" class, usually because that's all that's available, but
 then using the trained model to classify new data as either normal or
 anomaly.
 
-We provide five approaches to OCC:
+We provide density-based approaches to OCC. The idea is: we model the
+density of the normal training data, and if a test point appears in a
+low-density area of the space (lower than some threshold), then we
+flag it as an anomaly.
 
-Independent density estimation: a new point is classified as an
-anomaly if it is in a low-density region, where each feature is
-modelled with a Gaussian, and density is the product of each feature's
-density.
+There are several approaches to modelling density:
 
-Multivariate Gaussian density estimation: here the distribution is
-modelled by a multivariate Gaussian, which uses a mean for each
-feature plus a covariance matrix. See eg Andrew Ng Stanford ML course
-for the maths.
+-Single Gaussian: uses a single Gaussian (with mean and
+ variance). This is equivalent to just calculating the *distance* from
+ the test point to the mean (centroid) of the training data.
 
-Kernel density estimation: here the full joint distribution is
-modelled using kernel density.
+-Independent Gaussians: each feature is modelled with a Gaussian, and
+ density is the product of each feature's density.
 
-Mean distance: a new point is classified as an anomaly if its mean
-distance to the training set is large. Where a kernel is a measure of
-similarity between points, a distance is a measure of dissimilarity.
+-Multivariate Gaussian: the distribution is modelled by a multivariate
+ Gaussian, which uses a mean for each feature plus a covariance
+ matrix. See eg Andrew Ng Stanford ML course for the maths.
 
-Centroid: a new point is classified as an anomaly if its distance to
-the centroid of the training set is large.
+-Kernel density estimation (KDE): here the full joint distribution is
+ modelled using kernel density.
+
+Within KDE, we can choose the kernel and its parameters. To emulate
+Cuong To and Elati (GECCO 2013), we can use a linear "pseudo kernel",
+which is just the negative distance.
 
 """
 
@@ -47,101 +48,57 @@ import matplotlib.pyplot as plt
 import numpy as np
 np.seterr(all='raise')
 import scipy.spatial
+import scipy.io
 
-
-class CentroidBasedOneClassClassifier:
-    """A simple classifier for one-class classification: standardise
-    the data so that its mean is all zeros, then establish a threshold
-    so as to contain (eg) 95% of the training data. Then new points at
-    a distance larger than the threshold are classified as
-    anomalies. One of the motivations is that it will be extremely
-    fast both at training and classification time."""
-    
-    def __init__(self, threshold=0.95, metric="euclidean"):
-        self.threshold = threshold
-        self.scaler = preprocessing.StandardScaler()
+class SingleGaussianDensity:
+    """A helper class which behaves like KDE, but models density as a
+    Gaussian over the distance from the centroid. To be useful, the
+    user needs to standardise features to have equal variance."""
+    def __init__(self, metric="euclidean"):
         self.metric = metric
-
     def fit(self, X):
-        # scale
-        self.scaler.fit(X)
-        X = self.scaler.transform(X)
+        self.mu = np.mean(X, axis=0)
+        self.mu.shape = (1, len(self.mu))
+    def score_samples(self, X):
+        # distance from the mean
+        dists = scipy.spatial.distance.cdist(X, self.mu, metric=self.metric)
+        dists.shape = (dists.shape[0],)
+        # a pt at mu will have zero distance, hence high density
+        return scipy.stats.norm.pdf(dists, loc=0.0, scale=1.0)
 
-        # because we are using StandardScaler, the centroid is a
-        # vector of zeros, but we save it in shape (1, n) to allow
-        # cdist to work happily later.
-        self.centroid = np.zeros((1, X.shape[1]))
-
-        # transform relative threshold (eg 95%) to absolute
-        dists = self.score_samples(X, scale=False) # no need to scale again
-        self.abs_threshold = np.percentile(dists, 100 * self.threshold)
-
-    def score_samples(self, X, scale=True):
-        if scale:
-            X = self.scaler.transform(X)
-        dists = scipy.spatial.distance.cdist(X, self.centroid, metric=self.metric)
-        dists = np.mean(dists, axis=1)
-        return dists
-
-    def predict(self, X):
-        dists = self.score_samples(X)
-        return dists > self.abs_threshold
-
-
-class IndependenceOneClassClassifier:
-    """A simple classifier for one-class classification. Model density as
-    a product of independent Gaussians. Fit each Gaussian with a mean
-    and sd. New points of low density are classed as anomalies."""
-    
-    def __init__(self, threshold=0.95):
-        self.threshold = threshold
-        
+class IndependentGaussiansDensity:
+    """A helper class which behaves like KDE, but models density as a
+    product of independent Gaussians."""
     def fit(self, X):
         self.mu = np.mean(X, axis=0)
         self.sigmasq = np.std(X, axis=0)
-        
-        # transform relative threshold (eg 95%) to absolute
-        dens = self.score_samples(X)
-        self.abs_threshold = np.percentile(dens, 100 * (1 - self.threshold))
-        
     def score_samples(self, X):
-        return np.product(list(scipy.stats.norm.pdf(xi, loc=mui, scale=sigmasqi)
-                    for xi, mui, sigmasqi in zip(X.T, self.mu, self.sigmasq)), axis=0)
+        return np.product(
+            list(scipy.stats.norm.pdf(xi, loc=mui, scale=sigmasqi)
+                 for xi, mui, sigmasqi in
+                 zip(X.T, self.mu, self.sigmasq)), axis=0)
         
-    def predict(self, X):
-        return self.score_samples(X) < self.abs_threshold
-
-class MultiVariateGaussianOneClassClassifier:
-    """A simple classifier for one-class classification. Model density as
-    a multi-variate Gaussian, fitted with mean and covariance
-    matrix. New points of low density are classed as anomalies."""
-    
-    def __init__(self, threshold=0.95):
-        self.threshold = threshold
-        
+class MultivariateGaussianDensity:
+    """A helper class which behaves like KDE, but models density with a
+    single multivariate Gaussian."""
     def fit(self, X):
         self.mu = np.mean(X, axis=0)
         self.Sigma = np.cov(X, rowvar=0)
-        
-        # transform relative threshold (eg 95%) to absolute
-        dens = self.score_samples(X)
-        self.abs_threshold = np.percentile(dens, 100 * (1 - self.threshold))
-        
     def score_samples(self, X):
-        return scipy.stats.multivariate_normal.pdf(X, mean=self.mu, cov=self.Sigma)
-        
-    def predict(self, X):
-        return self.score_samples(X) < self.abs_threshold
+        result = scipy.stats.multivariate_normal.pdf(X, mean=self.mu, cov=self.Sigma)
+        if X.shape[0] == 1:
+            # multivariate_normal.pdf seems to squeeze, so we unsqueeze
+            result = np.array([result])
+        return result
     
-
 class NegativeMeanDistance:
-    """A small helper class which emulates the behaviour of KDE, but
-    using negative mean distance. We use distance because it can
-    behave slightly differently to a kernel: in particular, note that
-    a so-called linear kernel is only linear within the bandwidth, but
-    goes non-linearly to zero outside. We use negative distance to
-    preserve the sense, ie lower numbers are more anomalous, because a
-    kernel is a similarity while a distance is a dissimilarity."""
+    """A helper class which behaves like KDE, but models "density" as
+    negative mean distance. Distance behaves slightly differently to a
+    kernel: a so-called linear kernel is only linear within the
+    bandwidth, but goes non-linearly to zero outside. We use negative
+    distance to preserve the sense, ie lower numbers are more
+    anomalous, because a kernel is a similarity while a distance is a
+    dissimilarity."""
     
     def __init__(self, metric="euclidean"):
         self.metric = metric
@@ -158,13 +115,15 @@ class DensityBasedOneClassClassifier:
     """A classifier for one-class classification based on estimating
     the density of the training set.
 
-    There are two approaches as described above, kernel density
-    estimation (using the `kernel` and `bandwidth` parameters), and
-    distance (negative mean distance) against the training set.
+    Approaches to modelling density: single_gaussian,
+    independent_gaussians, multivariate_gaussian, kernel.
 
-    To use the distance approach, pass
-    `kernel="linear_pseudo_kernel"`. Otherwise, `kernel` is the name of a
-    kernel -- "gaussian", "linear", "tophat", "epanechnikov",
+    For kernel density, can also pass the kernel and bandwidth
+    parameters.
+
+    To use the negative mean distance approach, pass
+    `kernel="linear_pseudo_kernel"`. Otherwise, `kernel` is the name
+    of a kernel -- "gaussian", "linear", "tophat", "epanechnikov",
     "exponential", or "cosine", as accepted by
     KernelDensity. `bandwidth` is a parameter to that kernel. If you
     use "tophat" the effect is that density is defined as the number
@@ -174,73 +133,42 @@ class DensityBasedOneClassClassifier:
     by scipy.spatial.cdist, eg "euclidean".
 
     The `threshold` parameter sets the proportion of the (normal)
-    training data which should be classified as normal. The idea is
-    that in OCC it's better to have a few false positives than any
-    false negatives.
-
-    A big drawback of kernel density estimation is that if you have a
-    lot of training data, you have to store it all and calculate
-    against it all during classification -- not just during training
-    time. This is also true of the "distance" approach. The centroid
-    approach above avoids this. Another possibility is to downsample
-    -- fit a KDE with the training data, then draw a smaller number of
-    samples from that, and use that as your training data. This will
-    save time at classification time. However, I haven't tested
-    whether it really works or not.  `should_downsample` and
-    `downsample_count` are the parameters for it.
-
+    training data which should be classified as normal.
     """
 
-    def __init__(self, threshold=0.95, kernel="gaussian", bandwidth=1.0,
-                 metric="euclidean",
-                 should_downsample=False, downsample_count=1000):
+    def __init__(self,
+                 threshold=0.95,
+                 dens=None):
 
-        self.should_downsample = should_downsample
-        self.downsample_count = downsample_count
         self.threshold = threshold
         self.scaler = preprocessing.StandardScaler()
-        if kernel == "linear_pseudo_kernel":
-            self.dens = NegativeMeanDistance(metric=metric)
+        if dens:
+            self.dens = dens()
         else:
-            self.dens = KernelDensity(bandwidth=bandwidth, kernel=kernel, metric=metric)
+            self.dens = IndependentGaussiansDensity()
 
     def fit(self, X):
         # scale
         self.scaler.fit(X)
-        self.X = self.scaler.transform(X)
-
-        # downsample?
-        if self.should_downsample:
-            self.X = self.downsample(self.X, self.downsample_count)
-
+        X = self.scaler.transform(X)
+            
         # fit
-        self.dens.fit(self.X)
+        self.dens.fit(X)
 
         # transform relative threshold (eg 95%) to absolute
-        dens = self.score_samples(self.X, scale=False) # no need to scale again
+        dens = self.dens.score_samples(X)
         self.abs_threshold = np.percentile(dens, 100 * (1 - self.threshold))
 
-    def score_samples(self, X, scale=True):
-        if scale:
-            X = self.scaler.transform(X)
-        # in negative log-prob (for KDE), in negative distance (for NegativeMeanDistance)
+    def score_samples(self, X):
+        X = self.scaler.transform(X)
+        # the score is in negative log-probability (for KDE), or in
+        # density (for other density approaches), or in negative
+        # distance (for NegativeMeanDistance)
         return self.dens.score_samples(X)
 
     def predict(self, X):
         dens = self.score_samples(X)
-        return dens < self.abs_threshold # in both KDE and NMD, lower values are more anomalous
-
-    def downsample(self, X, n):
-        # we've already fit()ted, but we're worried that our X is so
-        # large our classifier will be too slow in practice. we can
-        # downsample by running a kde on X and sampling from it (this
-        # will be slow, but happens only once), and then using those
-        # points as the new X.
-        if len(X) < n:
-            return X
-        kde = KernelDensity()
-        kde.fit(X)
-        return kde.sample(n)
+        return dens < self.abs_threshold
 
 
 def toy_data():
@@ -299,44 +227,66 @@ def process_wbcd():
 
     return train_X, test_X, test_y
 
+def process_server():
+    """In this dataset (available from the Coursera Machine Learning
+    course, lesson 9 -- copyright Andrew Ng), we have a training set X
+    and a validation set Xval, yval. It represents features of a
+    network/compute server, eg CPU usage and network traffic. In
+    Coursera the validation set is used to select a value for the
+    threshold. But for our purposes we'll call it a test set
+    instead."""
+    d = scipy.io.loadmat("coursera_ml_ex8data2.mat")
+    train_X = d["X"]
+    test_X = d["Xval"]
+    test_y = d["yval"].astype('bool') # Matlab saves as ints
+    test_y.shape = (test_y.shape[0],) # of shape (100, 1)
+    return train_X, test_X, test_y
+    
 def test():
-    #train_X, test_X, test_y = toy_data()
-    train_X, test_X, test_y = process_wbcd()
-    test_X0 = test_X[~test_y]
-    test_X1 = test_X[test_y]
 
-    cnames = ["ind_density", "kde_density", "distance", "mvg_density", "centroid"]
-    cs = [
-        IndependenceOneClassClassifier(),
-        MultiVariateGaussianOneClassClassifier(),
-        DensityBasedOneClassClassifier(bandwidth=2,
-                                       kernel="gaussian",
-                                       metric="euclidean"),
-        DensityBasedOneClassClassifier(kernel="linear_pseudo_kernel"),
-        CentroidBasedOneClassClassifier()
-    ]
+    # several functions that will give us a dataset (X_train, X_test, y_test)
+    fns = (toy_data, process_wbcd, process_server)
+    
+    for data_fn in fns:
+        print(data_fn.__name__)
+        print("-----------------")
+        train_X, test_X, test_y = data_fn()
+        test_X0 = test_X[~test_y]
+        test_X1 = test_X[test_y]
 
-    for cname, c in zip(cnames, cs):
-        print(cname)
-        c.fit(train_X)
-        d0 = c.score_samples(test_X0)
-        d1 = c.score_samples(test_X1)
-        plt.hist((d0, d1), bins=30)
-        plt.savefig("hist_" + cname + ".png")
-        plt.close()
+        denss = [
+            SingleGaussianDensity,
+            IndependentGaussiansDensity,
+            MultivariateGaussianDensity,
+            KernelDensity,
+            NegativeMeanDistance
+        ]
+        
+        for dens in denss:
+            c = DensityBasedOneClassClassifier(dens=dens)
+            print(dens.__name__)
+            c.fit(train_X)
 
-        yhat = c.predict(test_X)
-        acc = np.mean(yhat == test_y)
+            # visualise
+            d0 = c.score_samples(test_X0)
+            d1 = c.score_samples(test_X1)
+            plt.hist((d0, d1), bins=30)
+            plt.savefig("hist_" + data_fn.__name__ + "_" + dens.__name__ + ".png")
+            plt.close()
 
-        # thanks Loi!
-        yhat_X0 = c.predict(test_X0)
-        acc_X0 = np.mean(yhat_X0 == False)
-        yhat_X1 = c.predict(test_X1)
-        acc_X1 = np.mean(yhat_X1 == True)
+            # predict and evaluate
+            yhat = c.predict(test_X)
+            acc = np.mean(yhat == test_y)
 
-        print("acc: %.2f" % acc)
-        print("acc X0: %.2f" % acc_X0)
-        print("acc X1: %.2f" % acc_X1)
-        print() 
+            # thanks Loi!
+            yhat_X0 = c.predict(test_X0)
+            acc_X0 = np.mean(yhat_X0 == False)
+            yhat_X1 = c.predict(test_X1)
+            acc_X1 = np.mean(yhat_X1 == True)
+
+            print("acc: %.2f" % acc)
+            print("acc X0: %.2f" % acc_X0)
+            print("acc X1: %.2f" % acc_X1)
+            print() 
 
 test()
