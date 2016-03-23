@@ -47,13 +47,13 @@ There are several approaches to modelling density:
 
 from __future__ import print_function
 
-from sklearn import preprocessing
-from sklearn.neighbors import KernelDensity
 import numpy as np
 np.seterr(all='raise')
 import scipy.spatial
 import scipy.io
 import scipy.stats
+from sklearn import preprocessing
+from sklearn.neighbors import KernelDensity
 import matplotlib.pyplot as plt
 
 class SingleGaussianDensity:
