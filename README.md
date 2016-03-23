@@ -16,7 +16,7 @@ Contents:
   labels. We can do it be learning the density (or similar concepts)
   of the data, and then applying a threshold -- new points are classed
   as anomalies if they lie in regions where the training data is of
-  low density. This code implements three related approaches to OCC,
+  low density. This code implements five related approaches to OCC,
   and is built in Python using Numpy, Scipy, and Scikit-learn
   components.
 

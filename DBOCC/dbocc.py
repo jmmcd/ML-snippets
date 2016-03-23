@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-# Copyright 2015 James McDermott <jmmcd@jmmcd.net>
+# Copyright 2015-2016 James McDermott <jmmcd@jmmcd.net>
 
 # Hereby licensed under the GPL v2 or any later version.
 
 
 """
+
 Density-based one-class classification, built using scikit-learn,
 numpy and scipy components. This is mostly for educational porpoises.
 
@@ -15,15 +16,19 @@ the "normal" class, usually because that's all that's available, but
 then using the trained model to classify new data as either normal or
 anomaly.
 
-We provide four approaches to OCC:
+We provide five approaches to OCC:
 
 Independent density estimation: a new point is classified as an
 anomaly if it is in a low-density region, where each feature is
 modelled with a Gaussian, and density is the product of each feature's
 density.
 
-Kernel density estimation: a new point is classified as an anomaly if
-it is in a low-density region, where the full joint distribution is
+Multivariate Gaussian density estimation: here the distribution is
+modelled by a multivariate Gaussian, which uses a mean for each
+feature plus a covariance matrix. See eg Andrew Ng Stanford ML course
+for the maths.
+
+Kernel density estimation: here the full joint distribution is
 modelled using kernel density.
 
 Mean distance: a new point is classified as an anomaly if its mean
@@ -106,6 +111,28 @@ class IndependenceOneClassClassifier:
     def predict(self, X):
         return self.score_samples(X) < self.abs_threshold
 
+class MultiVariateGaussianOneClassClassifier:
+    """A simple classifier for one-class classification. Model density as
+    a multi-variate Gaussian, fitted with mean and covariance
+    matrix. New points of low density are classed as anomalies."""
+    
+    def __init__(self, threshold=0.95):
+        self.threshold = threshold
+        
+    def fit(self, X):
+        self.mu = np.mean(X, axis=0)
+        self.Sigma = np.cov(X, rowvar=0)
+        
+        # transform relative threshold (eg 95%) to absolute
+        dens = self.score_samples(X)
+        self.abs_threshold = np.percentile(dens, 100 * (1 - self.threshold))
+        
+    def score_samples(self, X):
+        return scipy.stats.multivariate_normal.pdf(X, mean=self.mu, cov=self.Sigma)
+        
+    def predict(self, X):
+        return self.score_samples(X) < self.abs_threshold
+    
 
 class NegativeMeanDistance:
     """A small helper class which emulates the behaviour of KDE, but
@@ -278,9 +305,10 @@ def test():
     test_X0 = test_X[~test_y]
     test_X1 = test_X[test_y]
 
-    cnames = ["ind_density", "kde_density", "distance", "centroid"]
+    cnames = ["ind_density", "kde_density", "distance", "mvg_density", "centroid"]
     cs = [
         IndependenceOneClassClassifier(),
+        MultiVariateGaussianOneClassClassifier(),
         DensityBasedOneClassClassifier(bandwidth=2,
                                        kernel="gaussian",
                                        metric="euclidean"),
