@@ -103,9 +103,9 @@ class MultivariateGaussianDensity:
 
     def score_samples(self, X):
         result = scipy.stats.multivariate_normal.pdf(X, mean=self.mu, cov=self.Sigma)
+
         if X.shape[0] == 1:
             # multivariate_normal.pdf seems to squeeze, so we unsqueeze
-            # FIXME should do this using X.shape = ...
             result = np.array([result])
         return np.log(result)
 
