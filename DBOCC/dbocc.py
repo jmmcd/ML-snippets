@@ -68,13 +68,16 @@ class SingleGaussianDensity:
     def fit(self, X):
         self.mu = np.mean(X, axis=0)
         self.mu.shape = (1, len(self.mu))
+        dists = scipy.spatial.distance.cdist(X, self.mu, metric=self.metric)
+        self.sd = np.max(dists)
 
     def score_samples(self, X):
         # distance from the mean
         dists = scipy.spatial.distance.cdist(X, self.mu, metric=self.metric)
         dists.shape = (dists.shape[0],)
         # a pt at mu will have zero distance, hence high density
-        return scipy.stats.norm.pdf(dists, loc=0.0, scale=1.0)
+        # we use a large sd so that pts at high distance won't cause an underflow
+        return scipy.stats.norm.pdf(dists, loc=0.0, scale=self.sd)
 
 class IndependentGaussiansDensity:
     """A helper class which behaves like KDE, but models density as a
@@ -102,6 +105,7 @@ class MultivariateGaussianDensity:
         result = scipy.stats.multivariate_normal.pdf(X, mean=self.mu, cov=self.Sigma)
         if X.shape[0] == 1:
             # multivariate_normal.pdf seems to squeeze, so we unsqueeze
+            # FIXME should do this using X.shape = ...
             result = np.array([result])
         return result
 
@@ -136,14 +140,20 @@ class DensityBasedOneClassClassifier:
     The `threshold` parameter sets the proportion of the (normal)
     training data which should be classified as normal.
 
+    The `scaler` parameter gives a scaler object. Can pass `None`
+    and then no scaling is performed.
     """
 
     def __init__(self,
                  threshold=0.95,
-                 dens=None):
+                 dens=None,
+                 scaler=preprocessing.StandardScaler):
 
         self.threshold = threshold
-        self.scaler = preprocessing.StandardScaler()
+        if scaler:
+            self.scaler = scaler()
+        else:
+            self.scaler = None
         if dens:
             self.dens = dens
         else:
@@ -151,8 +161,9 @@ class DensityBasedOneClassClassifier:
 
     def fit(self, X):
         # scale
-        self.scaler.fit(X)
-        X = self.scaler.transform(X)
+        if self.scaler:
+            self.scaler.fit(X)
+            X = self.scaler.transform(X)
 
         # fit
         self.dens.fit(X)
@@ -162,10 +173,13 @@ class DensityBasedOneClassClassifier:
         self.abs_threshold = np.percentile(dens, 100 * (1 - self.threshold))
 
     def score_samples(self, X):
-        X = self.scaler.transform(X)
+        if self.scaler:
+            X = self.scaler.transform(X)
+
         # the score is in negative log-probability (for KDE), or in
         # density (for other density approaches), or in negative
         # distance (for NegativeMeanDistance)
+        # FIXME all should be in -np.log (except NMD)
         return self.dens.score_samples(X)
 
     def predict(self, X):
@@ -248,47 +262,59 @@ def test():
 
     # several functions that will give us a dataset (X_train, X_test, y_test)
     fns = (toy_data, process_wbcd, process_server)
+    fns = (process_server,)
+    denss = [
+        SingleGaussianDensity,
+        IndependentGaussiansDensity,
+        MultivariateGaussianDensity,
+        KernelDensity,
+        NegativeMeanDistance
+    ]
+
+    scalers = [
+        preprocessing.StandardScaler,
+        preprocessing.MinMaxScaler,
+        None
+    ]
 
     for data_fn in fns:
-        print(data_fn.__name__)
-        print("-----------------")
         train_X, test_X, test_y = data_fn()
         test_X0 = test_X[~test_y]
         test_X1 = test_X[test_y]
 
-        denss = [
-            SingleGaussianDensity,
-            IndependentGaussiansDensity,
-            MultivariateGaussianDensity,
-            KernelDensity,
-            NegativeMeanDistance
-        ]
-
         for dens in denss:
-            c = DensityBasedOneClassClassifier(dens=dens())
-            print(dens.__name__)
-            c.fit(train_X)
+            for scaler in scalers:
+                print(data_fn.__name__)
+                print("-----------------")
+                print(dens.__name__)
+                if scaler:
+                    print(scaler.__name__)
+                else:
+                    print("No scaling")
 
-            # visualise
-            d0 = c.score_samples(test_X0)
-            d1 = c.score_samples(test_X1)
-            plt.hist((d0, d1), bins=30)
-            plt.savefig("hist_" + data_fn.__name__ + "_" + dens.__name__ + ".png")
-            plt.close()
+                c = DensityBasedOneClassClassifier(dens=dens(), scaler=scaler)
+                c.fit(train_X)
 
-            # predict and evaluate
-            yhat = c.predict(test_X)
-            acc = np.mean(yhat == test_y)
+                # visualise
+                d0 = c.score_samples(test_X0)
+                d1 = c.score_samples(test_X1)
+                plt.hist((d0, d1), bins=30)
+                plt.savefig("hist_" + data_fn.__name__ + "_" + dens.__name__ + ".png")
+                plt.close()
 
-            # thanks Loi!
-            yhat_X0 = c.predict(test_X0)
-            acc_X0 = np.mean(yhat_X0 == False)
-            yhat_X1 = c.predict(test_X1)
-            acc_X1 = np.mean(yhat_X1 == True)
+                # predict and evaluate
+                yhat = c.predict(test_X)
+                acc = np.mean(yhat == test_y)
 
-            print("acc: %.2f" % acc)
-            print("acc X0: %.2f" % acc_X0)
-            print("acc X1: %.2f" % acc_X1)
-            print()
+                # thanks Loi!
+                yhat_X0 = c.predict(test_X0)
+                acc_X0 = np.mean(yhat_X0 == False)
+                yhat_X1 = c.predict(test_X1)
+                acc_X1 = np.mean(yhat_X1 == True)
+
+                print("acc: %.2f" % acc)
+                print("acc X0: %.2f" % acc_X0)
+                print("acc X1: %.2f" % acc_X1)
+                print()
 
 test()
