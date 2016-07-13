@@ -77,7 +77,7 @@ class SingleGaussianDensity:
         dists.shape = (dists.shape[0],)
         # a pt at mu will have zero distance, hence high density
         # we use a large sd so that pts at high distance won't cause an underflow
-        return scipy.stats.norm.pdf(dists, loc=0.0, scale=self.sd)
+        return np.log(scipy.stats.norm.pdf(dists, loc=0.0, scale=self.sd))
 
 class IndependentGaussiansDensity:
     """A helper class which behaves like KDE, but models density as a
@@ -88,10 +88,10 @@ class IndependentGaussiansDensity:
         self.sigmasq = np.std(X, axis=0)
 
     def score_samples(self, X):
-        return np.product(
+        return np.log(np.product(
             list(scipy.stats.norm.pdf(xi, loc=mui, scale=sigmasqi)
                  for xi, mui, sigmasqi in
-                 zip(X.T, self.mu, self.sigmasq)), axis=0)
+                 zip(X.T, self.mu, self.sigmasq)), axis=0))
 
 class MultivariateGaussianDensity:
     """A helper class which behaves like KDE, but models density with a
@@ -107,7 +107,7 @@ class MultivariateGaussianDensity:
             # multivariate_normal.pdf seems to squeeze, so we unsqueeze
             # FIXME should do this using X.shape = ...
             result = np.array([result])
-        return result
+        return np.log(result)
 
 class NegativeMeanDistance:
     """A helper class which behaves like KDE, but models "density" as
@@ -176,10 +176,8 @@ class DensityBasedOneClassClassifier:
         if self.scaler:
             X = self.scaler.transform(X)
 
-        # the score is in negative log-probability (for KDE), or in
-        # density (for other density approaches), or in negative
-        # distance (for NegativeMeanDistance)
-        # FIXME all should be in -np.log (except NMD)
+        # the score is in log-probability (for density approaches), or
+        # in negative distance (for NegativeMeanDistance)
         return self.dens.score_samples(X)
 
     def predict(self, X):
@@ -262,7 +260,7 @@ def test():
 
     # several functions that will give us a dataset (X_train, X_test, y_test)
     fns = (toy_data, process_wbcd, process_server)
-    fns = (process_server,)
+
     denss = [
         SingleGaussianDensity,
         IndependentGaussiansDensity,
