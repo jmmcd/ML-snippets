@@ -22,8 +22,8 @@ There are several approaches to modelling density:
  variance). This is equivalent to just calculating the *distance* from
  the test point to the mean (centroid) of the training data.
 
--Independent Gaussians: each feature is modelled with a Gaussian, and
- density is the product of each feature's density.
+-Naive Bayes: each feature is modelled with an independent Gaussian,
+ and density is the product of each feature's density.
 
 -Multivariate Gaussian: the distribution is modelled by a multivariate
  Gaussian, which uses a mean for each feature plus a covariance
@@ -78,7 +78,7 @@ class SingleGaussianDensity:
         # we use a large sd so that pts at high distance won't cause an underflow
         return np.log(scipy.stats.norm.pdf(dists, loc=0.0, scale=self.sd))
 
-class IndependentGaussiansDensity:
+class NaiveBayesDensity:
     """A helper class which behaves like KDE, but models density as a
     product of independent Gaussians."""
 
@@ -133,7 +133,7 @@ class DensityBasedOneClassClassifier:
     the density of the training set.
 
     The `dens` parameter is a density object, such as the
-    IndependentGaussiansDensity above, or the KernelDensity from
+    NaiveBayesDensity above, or the KernelDensity from
     sklearn.
 
     The `threshold` parameter sets the proportion of the (normal)
@@ -156,7 +156,7 @@ class DensityBasedOneClassClassifier:
         if dens:
             self.dens = dens
         else:
-            self.dens = IndependentGaussiansDensity()
+            self.dens = NaiveBayesDensity()
 
     def fit(self, X):
         # scale
