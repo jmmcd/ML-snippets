@@ -9,7 +9,7 @@ import numpy as np
 import pylab as plt
 import scipy.io
 
-from dbocc import SingleGaussianDensity, IndependentGaussiansDensity, MultivariateGaussianDensity, NegativeMeanDistance, DensityBasedOneClassClassifier, KernelDensity
+from dbocc import SingleGaussianDensity, NaiveBayesDensity, MultivariateGaussianDensity, NegativeMeanDistance, DensityBasedOneClassClassifier, KernelDensity
 
 
 
@@ -91,7 +91,7 @@ def test():
 
     denss = [
         SingleGaussianDensity,
-        IndependentGaussiansDensity,
+        NaiveBayesDensity,
         MultivariateGaussianDensity,
         KernelDensity,
         NegativeMeanDistance
