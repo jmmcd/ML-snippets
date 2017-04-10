@@ -8,6 +8,7 @@ from http://air.ug/~jquinn/software/lsanomaly.html.
 import numpy as np
 import pylab as plt
 import scipy.io
+from sklearn import preprocessing
 
 from dbocc import SingleGaussianDensity, NaiveBayesDensity, MultivariateGaussianDensity, NegativeMeanDistance, DensityBasedOneClassClassifier, KernelDensity
 
@@ -141,6 +142,6 @@ def test():
                 print("acc: %.2f" % acc)
                 print("acc X0: %.2f" % acc_X0)
                 print("acc X1: %.2f" % acc_X1)
-                print()
+                print("")
 
 test()
