@@ -130,6 +130,9 @@ def test():
                 plt.close()
 
                 # predict and evaluate
+                yhat_prob = c.score_samples(test_X)
+                print(yhat_prob[:5])
+
                 yhat = c.predict(test_X)
                 acc = np.mean(yhat == test_y)
 

@@ -18,12 +18,13 @@ flag it as an anomaly.
 
 There are several approaches to modelling density:
 
--Single Gaussian: uses a single Gaussian (with mean and
+-Single Gaussian: uses a single Gaussian (with mean and scalar
  variance). This is equivalent to just calculating the *distance* from
  the test point to the mean (centroid) of the training data.
 
 -Naive Bayes: each feature is modelled with an independent Gaussian,
- and density is the product of each feature's density.
+ and density is the product of each feature's density. This is
+ equivalent to having a diagonal covariance matrix.
 
 -Multivariate Gaussian: the distribution is modelled by a multivariate
  Gaussian, which uses a mean for each feature plus a covariance
@@ -76,7 +77,8 @@ class SingleGaussianDensity:
         dists.shape = (dists.shape[0],)
         # a pt at mu will have zero distance, hence high density
         # we use a large sd so that pts at high distance won't cause an underflow
-        return np.log(scipy.stats.norm.pdf(dists, loc=0.0, scale=self.sd))
+        return scipy.stats.norm.logpdf(dists, loc=0.0, scale=self.sd)
+
 
 class NaiveBayesDensity:
     """A helper class which behaves like KDE, but models density as a
@@ -87,10 +89,12 @@ class NaiveBayesDensity:
         self.sigmasq = np.std(X, axis=0)
 
     def score_samples(self, X):
-        return np.log(np.product(
-            list(scipy.stats.norm.pdf(xi, loc=mui, scale=sigmasqi)
+        return np.sum(
+            list(scipy.stats.norm.logpdf(xi, loc=mui, scale=sigmasqi)
                  for xi, mui, sigmasqi in
-                 zip(X.T, self.mu, self.sigmasq)), axis=0))
+                 zip(X.T, self.mu, self.sigmasq)), axis=0)
+
+
 
 class MultivariateGaussianDensity:
     """A helper class which behaves like KDE, but models density with a
@@ -101,12 +105,12 @@ class MultivariateGaussianDensity:
         self.Sigma = np.cov(X, rowvar=0)
 
     def score_samples(self, X):
-        result = scipy.stats.multivariate_normal.pdf(X, mean=self.mu, cov=self.Sigma)
+        result = scipy.stats.multivariate_normal.logpdf(X, mean=self.mu, cov=self.Sigma)
 
         if X.shape[0] == 1:
             # multivariate_normal.pdf seems to squeeze, so we unsqueeze
             result = np.array([result])
-        return np.log(result)
+        return result
 
 class NegativeMeanDistance:
     """A helper class which behaves like KDE, but models "density" as
