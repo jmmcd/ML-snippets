@@ -68,16 +68,13 @@ class SingleGaussianDensity:
     def fit(self, X):
         self.mu = np.mean(X, axis=0)
         self.mu.shape = (1, len(self.mu))
-        dists = scipy.spatial.distance.cdist(X, self.mu, metric=self.metric)
-        self.sd = np.max(dists)
 
     def score_samples(self, X):
         # distance from the mean
         dists = scipy.spatial.distance.cdist(X, self.mu, metric=self.metric)
         dists.shape = (dists.shape[0],)
-        # a pt at mu will have zero distance, hence high density
-        # we use a large sd so that pts at high distance won't cause an underflow
-        return scipy.stats.norm.logpdf(dists, loc=0.0, scale=self.sd)
+        # a pt at mu will have zero distance, hence high density.
+        return scipy.stats.norm.logpdf(dists, loc=0.0, scale=1.0)
 
 
 class NaiveBayesDensity:
@@ -87,6 +84,9 @@ class NaiveBayesDensity:
     def fit(self, X):
         self.mu = np.mean(X, axis=0)
         self.sigmasq = np.std(X, axis=0)
+        # if any dimension has 0 variance, set it to 1.0
+        self.sigmasq = np.where(np.isclose(self.sigmasq, 0.0),
+                                1.0, self.sigmasq)
 
     def score_samples(self, X):
         return np.sum(
