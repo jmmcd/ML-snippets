@@ -1,16 +1,23 @@
 #!/usr/bin/env python
 
-"""Demos for density-based one-class classification. Some are copied
-from http://air.ug/~jquinn/software/lsanomaly.html.
+"""Demos for density-based one-class classification.
 
 """
 
 import numpy as np
-import pylab as plt
+import matplotlib.pyplot as plt
 import scipy.io
 from sklearn import preprocessing
+from sklearn.metrics import roc_auc_score
 
-from dbocc import SingleGaussianDensity, NaiveBayesDensity, MultivariateGaussianDensity, NegativeMeanDistance, DensityBasedOneClassClassifier, KernelDensity
+# TODO test versus these three -- need a wrapper for them to
+# use score_samples and same convention as us.
+
+# from sklearn.svm import OneClassSVM
+# from sklearn.covariance import EllipticEnvelope
+# from sklearn.ensemble import IsolationForest
+
+from dbocc import SingleGaussianDensity, NaiveBayesDensity, MultivariateGaussianDensity, NegativeMeanDistance, KernelDensity, DensityBasedOneClassClassifier
 
 
 
@@ -39,6 +46,34 @@ def toy_data():
     y_test = np.array([False, False, False, False, False, True])
 
     return X, X_test, y_test
+
+
+def toy_data_with_zero_variance():
+    # normal training set
+    X = np.array([
+        [1.0, 1.0, 1.0],
+        [1.1, 1.1, 1.0],
+        [1.0, 1.2, 1.0],
+        [1.1, 1.3, 1.0],
+        [1.0, 1.1, 1.0],
+        [1.4, 1.1, 1.0],
+        [1.1, 1.2, 1.0]
+    ])
+
+    # test set with some normal, some anomaly
+    X_test = np.array([
+        [1.1, 1.1, 1.0],
+        [1.0, 1.2, 1.0],
+        [1.1, 1.3, 1.0],
+        [1.0, 1.1, 1.0],
+        [1.1, 1.35, 1.0],
+        [1.6, 0.9, 1.0]
+    ])
+    # labels for test set
+    y_test = np.array([False, False, False, False, False, True])
+
+    return X, X_test, y_test
+
 
 def process_wbcd():
     d = np.genfromtxt("wbcd.dat", delimiter=",")
@@ -85,22 +120,38 @@ def process_server():
     test_y.shape = (test_y.shape[0],) # of shape (100, 1)
     return train_X, test_X, test_y
 
+
+def actigraphy(whichuser=1):
+    """Some actigraphy data not yet made publicly available."""
+    train_X = np.load("actigraphy_standardised_train_X.npy")
+    train_y = np.load("actigraphy_train_y.npy")
+    test_X = np.load("actigraphy_standardised_test_X.npy")
+    test_y = np.load("actigraphy_test_y.npy")
+    train_X = train_X[train_y == whichuser]
+    test_y = test_y != whichuser
+    return train_X, test_X, test_y
+
+
 def test():
 
-    # several functions that will give us a dataset (X_train, X_test, y_test)
+    # several functions that will give us a dataset of the form
+    # (X_train, X_test, y_test)
     fns = (toy_data, process_wbcd, process_server)
+    # need to be treated to deal with the zero-column
+    unused_fns = (actigraphy, toy_data_with_zero_variance)
+    fns = (toy_data,)
 
     denss = [
         SingleGaussianDensity,
-        NaiveBayesDensity,
-        MultivariateGaussianDensity,
-        KernelDensity,
-        NegativeMeanDistance
+        # NaiveBayesDensity,
+        # MultivariateGaussianDensity,
+        # KernelDensity,
+        # NegativeMeanDistance
     ]
 
     scalers = [
-        preprocessing.StandardScaler,
-        preprocessing.MinMaxScaler,
+        # preprocessing.StandardScaler,
+        # preprocessing.MinMaxScaler,
         None
     ]
 
@@ -119,7 +170,8 @@ def test():
                 else:
                     print("No scaling")
 
-                c = DensityBasedOneClassClassifier(dens=dens(), scaler=scaler)
+                c = DensityBasedOneClassClassifier(dens=dens(),
+                                                   scaler=scaler)
                 c.fit(train_X)
 
                 # visualise
@@ -131,7 +183,6 @@ def test():
 
                 # predict and evaluate
                 yhat_prob = c.score_samples(test_X)
-                print(yhat_prob[:5])
 
                 yhat = c.predict(test_X)
                 acc = np.mean(yhat == test_y)
@@ -141,10 +192,18 @@ def test():
                 acc_X0 = np.mean(yhat_X0 == False)
                 yhat_X1 = c.predict(test_X1)
                 acc_X1 = np.mean(yhat_X1 == True)
+                # TODO: roc_auc_score assumes that yhat_prob measures
+                # probability of inlyingness, but our convention is
+                # the opposite. We should fix this.
+
+                # auc = roc_auc_score(test_y, yhat_prob)
+                auc_discrete = roc_auc_score(test_y, yhat)
 
                 print("acc: %.2f" % acc)
                 print("acc X0: %.2f" % acc_X0)
                 print("acc X1: %.2f" % acc_X1)
+                # print("auc: %.2f" % auc)
+                print("auc_discrete: %.2f" % auc_discrete)
                 print("")
 
 test()
