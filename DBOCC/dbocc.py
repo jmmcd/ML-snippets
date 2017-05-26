@@ -48,13 +48,25 @@ There are several approaches to modelling density:
  distance is distinct from the distance to the centroid (as in Single
  Gaussian above).
 
-Scikit-learn uses two different conventions for classifiers. For
-binary classifiers, it uses clf.score_samples(), and typical . For one-class
-classifiers, it uses clf.decision_function(), and uses class labels of
--1 for inliers and 1 for outliers. Increasing values of the decision
-function indicate more outlyingness. In our code, it is useful to be
-compatible with binary classifiers, so we use score_samples(), and a
-convention of 0 and 1. TODO: maybe change to -1, 1.
+Scikit-learn uses some different conventions for classifiers.
+
+Binary classifiers: for SVM, it uses clf.decision_function() to get
+real values, and then clf.predict() to get integer class labels.
+
+But for eg Naive Bayes, it uses clf.predict_proba (or
+predict_log_proba) to get real values, and then clf.predict().
+
+For one-class classifiers (OneClassSVM, EllipticEnvelope,
+IsolationForest), it uses clf.decision_function() to get real values,
+and then clf.predict() to get class labels, always -1 for outliers and
+1 for inliers.
+
+In our density-based OCC situation, the real values can be thought of
+as probabilities or pseudo-probabilities, so we use
+predict_log_proba. We return True for outliers and False for inliers.
+
+TODO: implement more of the API: predict_proba, and maybe use -1, 1
+instead of True, False.
 
 """
 
@@ -214,7 +226,7 @@ class DensityBasedOneClassClassifier:
         # eg 0.95 -> 0.05 -> 5 -> -467.3
         self.abs_threshold = np.percentile(dens, 100 * (1 - self.threshold))
 
-    def score_samples(self, X):
+    def predict_log_proba(self, X):
         if self.scaler:
             X = self.scaler.transform(X)
 

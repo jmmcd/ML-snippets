@@ -139,19 +139,18 @@ def test():
     fns = (toy_data, process_wbcd, process_server)
     # need to be treated to deal with the zero-column
     unused_fns = (actigraphy, toy_data_with_zero_variance)
-    fns = (toy_data,)
 
     denss = [
         SingleGaussianDensity,
-        # NaiveBayesDensity,
-        # MultivariateGaussianDensity,
-        # KernelDensity,
-        # NegativeMeanDistance
+        NaiveBayesDensity,
+        MultivariateGaussianDensity,
+        KernelDensity,
+        NegativeMeanDistance
     ]
 
     scalers = [
-        # preprocessing.StandardScaler,
-        # preprocessing.MinMaxScaler,
+        preprocessing.StandardScaler,
+        preprocessing.MinMaxScaler,
         None
     ]
 
