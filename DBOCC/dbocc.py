@@ -58,15 +58,12 @@ predict_log_proba) to get real values, and then clf.predict().
 
 For one-class classifiers (OneClassSVM, EllipticEnvelope,
 IsolationForest), it uses clf.decision_function() to get real values,
-and then clf.predict() to get class labels, always -1 for outliers and
-1 for inliers.
+and then clf.predict() to get class labels, always -1 for normal and
+1 for anomalies.
 
 In our density-based OCC situation, the real values can be thought of
 as probabilities or pseudo-probabilities, so we use
-predict_log_proba. We return True for outliers and False for inliers.
-
-TODO: implement more of the API: predict_proba, and maybe use -1, 1
-instead of True, False.
+predict_log_proba. We return -1 for normal and 1 for anomalies.
 
 """
 
@@ -79,83 +76,37 @@ import scipy.stats
 from sklearn import preprocessing
 from sklearn.neighbors import KernelDensity
 import matplotlib.pyplot as plt
+from sklearn.mixture import GaussianMixture
 
-# TODO replace my SingleGaussianDensity, NaiveBayesDensity,
-# MultivariateGaussianDensity with a GaussianMixture, appropriately
-# parameterised. But then it's a bit harder to learn from?
-#
-# from sklearn.mixture import GaussianMixture
-
-class SingleGaussianDensity:
+class SingleGaussianDensity(GaussianMixture):
     """A helper class which behaves like KDE, but models density as a
-    Gaussian over the distance from the centroid. To be useful, the
-    user needs to standardise features to have equal variance."""
+    single spherical Gaussian: that is equivalent to putting a
+    threshold on distance from the centroid. To be useful, the user
+    needs to standardise features to have equal variance."""
+    def __init__(self):
+        super(SingleGaussianDensity, self).__init__(
+            n_components=1,
+            covariance_type='spherical'
+        )
 
-    def __init__(self, metric="euclidean"):
-        self.mu = None
-        self.metric = metric
-
-    def fit(self, X):
-        self.mu = np.mean(X, axis=0)
-        self.mu.shape = (1, len(self.mu))
-
-    def score(self, X, y=None):
-        # copied directly from sklearn kde.py
-        return np.sum(self.score_samples(X))
-
-    def score_samples(self, X):
-        # distance from the mean
-        dists = scipy.spatial.distance.cdist(X, self.mu, metric=self.metric)
-        # self.mu is a single pt, so dists has shape (n, 1), but we just
-        # need the n.
-        dists.shape = (dists.shape[0],)
-        # a pt at mu will have zero distance, hence high density.
-        return scipy.stats.norm.logpdf(dists, loc=0.0, scale=1.0)
-
-
-class NaiveBayesDensity:
+class NaiveBayesDensity(GaussianMixture):
     """A helper class which behaves like KDE, but models density as a
-    product of independent Gaussians."""
+    product of independent Gaussians, ie a diagonal covariance
+    matrix."""
+    def __init__(self):
+        super(NaiveBayesDensity, self).__init__(
+            n_components=1,
+            covariance_type='diag'
+        )
 
-    def fit(self, X):
-        self.mu = np.mean(X, axis=0)
-        self.sigmasq = np.std(X, axis=0)
-        # if any dimension has 0 variance, set it to 1.0
-        self.sigmasq = np.where(np.isclose(self.sigmasq, 0.0),
-                                1.0, self.sigmasq)
-
-    def score(self, X, y=None):
-        # copied directly from sklearn kde.py
-        return np.sum(self.score_samples(X))
-
-    def score_samples(self, X):
-        # sum of log-probs = log of product of probs
-        return np.sum(
-            list(scipy.stats.norm.logpdf(xi, loc=mui, scale=sigmasqi)
-                 for xi, mui, sigmasqi in
-                 zip(X.T, self.mu, self.sigmasq)), axis=0)
-
-
-
-class MultivariateGaussianDensity:
+class MultivariateGaussianDensity(GaussianMixture):
     """A helper class which behaves like KDE, but models density with a
-    single multivariate Gaussian."""
-
-    def fit(self, X):
-        self.mu = np.mean(X, axis=0)
-        self.Sigma = np.cov(X, rowvar=0)
-
-    def score(self, X, y=None):
-        # copied directly from sklearn kde.py
-        return np.sum(self.score_samples(X))
-
-    def score_samples(self, X):
-        result = scipy.stats.multivariate_normal.logpdf(X, mean=self.mu, cov=self.Sigma)
-
-        if X.shape[0] == 1:
-            # multivariate_normal.pdf seems to squeeze, so we unsqueeze
-            result = np.array([result])
-        return result
+    single multivariate Gaussian, ie a full covariance matrix."""
+    def __init__(self):
+        super(MultivariateGaussianDensity, self).__init__(
+            n_components=1,
+            covariance_type='full'
+        )
 
 class NegativeMeanDistance:
     """A helper class which behaves like KDE, but models "density" as
@@ -235,5 +186,6 @@ class DensityBasedOneClassClassifier:
         return self.dens.score_samples(X)
 
     def predict(self, X):
-        dens = self.score_samples(X)
-        return dens < self.abs_threshold
+        dens = self.predict_log_proba(X)
+        # -1 for normal, 1 for anomaly
+        return np.where(dens < self.abs_threshold, 1, -1)
