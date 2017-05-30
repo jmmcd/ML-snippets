@@ -230,6 +230,5 @@ def test():
             print("auc_real: %.2f" % auc_real)
             print("auc_discrete: %.2f" % auc_discrete)
             print("")
-            results.append(auc_discrete)
 
 test()
