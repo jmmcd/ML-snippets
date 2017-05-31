@@ -58,12 +58,13 @@ predict_log_proba) to get real values, and then clf.predict().
 
 For one-class classifiers (OneClassSVM, EllipticEnvelope,
 IsolationForest), it uses clf.decision_function() to get real values,
-and then clf.predict() to get class labels, always -1 for normal and
-1 for anomalies.
+and then clf.predict() to get class labels, always +1 for normal and
+-1 for anomalies.
 
-In our density-based OCC situation, the real values can be thought of
-as probabilities or pseudo-probabilities, so we use
-predict_log_proba. We return -1 for normal and 1 for anomalies.
+In our density-based OCC situation, the real values are probabilities
+except in NegativeMeanDistance, but we will regard these as
+pseudo-probabilities, so we use predict_log_proba. We return +1 for
+normal and -1 for anomalies.
 
 """
 
@@ -200,5 +201,5 @@ class DensityBasedOneClassClassifier:
 
     def predict(self, X):
         dens = self.predict_log_proba(X)
-        # -1 for normal, 1 for anomaly
-        return np.where(dens < self.abs_threshold, 1, -1)
+        # 1 for normal, -1 for anomaly
+        return np.where(dens < self.abs_threshold, -1, 1)

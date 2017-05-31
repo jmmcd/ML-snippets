@@ -45,7 +45,7 @@ def toy_data():
     ])
     # labels for test set
     y_test = np.array([False, False, False, False, False, True])
-    y_test = np.where(y_test, 1, -1)
+    y_test = np.where(y_test, -1, 1)
 
     return X, X_test, y_test
 
@@ -73,7 +73,7 @@ def toy_data_with_zero_variance():
     ])
     # labels for test set
     y_test = np.array([False, False, False, False, False, True])
-    y_test = np.where(y_test, 1, -1)
+    y_test = np.where(y_test, -1, 1)
 
     return X, X_test, y_test
 
@@ -104,7 +104,7 @@ def process_wbcd():
     # test set is the other half of the normal class and all of the anomaly class
     test_X = np.concatenate((dX0[idx:], dX1))
     test_y = np.concatenate((dy0[idx:], dy1))
-    test_y = np.where(test_y, 1, -1)
+    test_y = np.where(test_y, -1, 1)
 
     return train_X, test_X, test_y
 
@@ -121,7 +121,7 @@ def process_server():
     test_X = d["Xval"]
     test_y = d["yval"].astype('bool') # Matlab saves as ints
     test_y.shape = (test_y.shape[0],) # of shape (100, 1)
-    test_y = np.where(test_y, 1, -1)
+    test_y = np.where(test_y, -1, 1)
     return train_X, test_X, test_y
 
 
@@ -133,7 +133,7 @@ def actigraphy(whichuser=1):
     test_y = np.load("actigraphy_test_y.npy")
     train_X = train_X[train_y == whichuser]
     test_y = test_y != whichuser
-    test_y = np.where(test_y, 1, -1)
+    test_y = np.where(test_y, -1, 1)
     return train_X, test_X, test_y
 
 
@@ -181,8 +181,8 @@ def test():
 
     for data_fn in fns:
         train_X, test_X, test_y = data_fn()
-        test_X_normal = test_X[test_y == -1] # -1 for normal
-        test_X_anomaly = test_X[test_y == 1] # 1 for anomaly
+        test_X_normal = test_X[test_y ==  1] # 1 for normal
+        test_X_anomaly = test_X[test_y == -1] # -1 for anomaly
 
         for name in clfs:
             c = clfs[name]
