@@ -115,7 +115,11 @@ class NegativeMeanDistance:
     bandwidth, but goes non-linearly to zero outside. We use negative
     distance to preserve the sense, ie lower numbers are more
     anomalous, because a kernel is a similarity while a distance is a
-    dissimilarity."""
+    dissimilarity. We also allow user to set nneighbours, so we take NMD
+    of these nearest neighbours only. This can help avoid an exaggerated
+    effect of outliers. TODO: the threshold calculated with nneighbours
+    in use may be wrong, because every point has a 0 as the first
+    distance (distance to itself)."""
 
     def __init__(self, nneighbours=None, metric="euclidean"):
         self.metric = metric
