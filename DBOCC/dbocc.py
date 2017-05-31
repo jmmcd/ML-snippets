@@ -117,11 +117,15 @@ class NegativeMeanDistance:
     anomalous, because a kernel is a similarity while a distance is a
     dissimilarity."""
 
-    def __init__(self, metric="euclidean"):
+    def __init__(self, nneighbours=None, metric="euclidean"):
         self.metric = metric
+        self.nneighbours = nneighbours
 
     def fit(self, X):
         self.X = X
+        if self.nneighbours is not None:
+            if self.nneighbours < 1 or self.nneighbours > len(self.X):
+                raise ValueError("Invalid value for nneighbours")
 
     def score(self, X, y=None):
         # copied directly from sklearn kde.py
@@ -129,8 +133,13 @@ class NegativeMeanDistance:
 
     def score_samples(self, X):
         dists = scipy.spatial.distance.cdist(X, self.X, metric=self.metric)
-        return -np.mean(dists, axis=1)
-
+        if self.nneighbours:
+            # take the NMD of the nearest neighbours only, need to sort
+            dists.sort()
+            return -np.mean(dists[:,:self.nneighbours], axis=1)
+        else:
+            # take the NMD of all points in training set
+            return -np.mean(dists, axis=1)
 
 class DensityBasedOneClassClassifier:
     """A classifier for one-class classification based on estimating
