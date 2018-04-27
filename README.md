@@ -7,7 +7,7 @@ here and refer my students to it.
 
 Contents:
 
-* DBOCC: density-based one-class classification
+* [DBOCC](DBOCC): density-based one-class classification.
 
   One-class classification is also known as anomaly detection. It's
   about training a classifier when you only have one set of data -- no
@@ -18,19 +18,28 @@ Contents:
   and is built in Python using Numpy, Scipy, and Scikit-learn
   components.
 
-* Liver: simple contingency table, predict majority, and logistic
-  regression on the well-known BUPA Liver Disorders dataset. There has
-  been a widespread misconception that the final variable indicates
-  presence or absence of a liver disorder in the subjects. In fact,
-  the final variable is just a train/test selector. Richard Forsyth
-  and I wrote an article discussing the issue. This (very simple) code
-  is part of that.
+* [Liver](Liver): simple contingency table, predict majority, and
+  logistic regression on the well-known BUPA Liver Disorders dataset.
+  There has been a widespread misconception that the final variable
+  indicates presence or absence of a liver disorder in the
+  subjects. In fact, the final variable is just a train/test
+  selector. Richard Forsyth and I wrote an article discussing the
+  issue. This (very simple) code is part of that.
 
-* Uniform In Hypersphere: generate vectors uniformly distributed in a
-  hypersphere of given dimension. Two methods are supplied, which are
-  similar but not identical. One, from Tax and Duin 2001, corrects
-  what I think is an error in the original.
+* [Uniform In Hypersphere](Uniform_in_Hypersphere): generate vectors
+  uniformly distributed in a hypersphere of given dimension. Two
+  methods are supplied, which are similar but not identical. One, from
+  Tax and Duin 2001, corrects what I think is an error in the
+  original.
 
-* RecSys: a collaborative filtering recommender system, using singular
-  value decomposition by manual gradient descent. Based on Funk's and
-  Paterek's work towards the Netflix prize.
+* [RecSys](RecSys): a collaborative filtering recommender system,
+  using singular value decomposition by manual gradient descent. Based
+  on Funk's and Paterek's work towards the Netflix prize.
+  
+* [SVM](SVM): I think a lot of good SVM tutorials give all the details
+  on the support vectors, the maximum margin separating hyperplane,
+  allowing a soft margin, and training by quadratic programming, but
+  don't give a good intuition on an important part of the big picture:
+  in the new feature space implicitly created by an SVM, what do the
+  features mean?  This short notebook tries to fill in the missing
+  link.
