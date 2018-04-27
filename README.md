@@ -36,10 +36,11 @@ Contents:
   using singular value decomposition by manual gradient descent. Based
   on Funk's and Paterek's work towards the Netflix prize.
   
-* [SVM](SVM): I think a lot of good SVM tutorials give all the details
-  on the support vectors, the maximum margin separating hyperplane,
-  allowing a soft margin, and training by quadratic programming, but
-  don't give a good intuition on an important part of the big picture:
-  in the new feature space implicitly created by an SVM, what do the
-  features mean?  This short notebook tries to fill in the missing
-  link.
+* [SVM](SVM): I think a lot of SVM tutorials give all the details
+  about the maximum margin separating hyperplane, the quadratic
+  programming and support vectors, and radial kernels, but don't give
+  a good intuition on one important part of the big picture. When the
+  kernel does its implicit mapping from the original feature space to
+  a new feature space, what does that new feature space look like?
+  What do the features in that new space mean? This short notebook
+  tries to fill in the missing link.
