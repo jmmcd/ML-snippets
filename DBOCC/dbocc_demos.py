@@ -213,13 +213,13 @@ def test():
 
             # thanks Loi!
             yhat_X_normal = c.predict(test_X_normal)
-            acc_X_normal = np.mean(yhat_X_normal == -1)
+            acc_X_normal = np.mean(yhat_X_normal == 1)
             yhat_X_anomaly = c.predict(test_X_anomaly)
-            acc_X_anomaly = np.mean(yhat_X_anomaly == 1)
+            acc_X_anomaly = np.mean(yhat_X_anomaly == -1)
 
             # roc_auc_score needs true binary labels (0, 1) and
             # assumes that yhat_prob measures probability of class 1,
-            # so we convert our normal (-1) to 1 and anomaly (1) to 0.
+            # so we convert our normal (1) to 1 and anomaly (-1) to 0.
             auc_real = roc_auc_score(test_y == -1, yhat_prob)
             FPR, TPR, thresholds = roc_curve(test_y == -1, yhat == -1)
             auc_discrete = auc(FPR, TPR)
