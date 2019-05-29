@@ -44,3 +44,9 @@ Contents:
   a new feature space, what does that new feature space look like?
   What do the features in that new space mean? This short notebook
   tries to fill in the missing link.
+
+* [Representations for AI](Representations_for_AI): This
+  notebook/presentation is about learning representations (embeddings)
+  for data using classic machine learning methods, and also using a
+  modern method (a Siamese neural network with triplet loss). It is
+  part of the Atlantec 2019 AI Tools and Techniques session.
