@@ -51,4 +51,6 @@ Contents:
   modern method (a Siamese neural network with triplet loss). It is
   part of the Atlantec 2019 AI Tools and Techniques session.
   
-  
+
+
+
