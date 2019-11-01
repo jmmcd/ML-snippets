@@ -50,3 +50,5 @@ Contents:
   for data using classic machine learning methods, and also using a
   modern method (a Siamese neural network with triplet loss). It is
   part of the Atlantec 2019 AI Tools and Techniques session.
+  
+  
