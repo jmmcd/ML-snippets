@@ -54,5 +54,14 @@ Contents:
   part of the Atlantec 2019 AI Tools and Techniques session.
   
 
-
+* [Kernel Regression Association](Kernel_Regression_Association): This notebook
+  presents a novel approach to measuring the strength of association between
+  two real variables. Correlation measures strength of linear relationship,
+  while rank-based correlation such as Kendall's tau measures strength of 
+  non-linear monotonic relationship. Mutual information measures strength of
+  non-linear, non-monotonic relationship, but depends on an arbitrary binning
+  of the data into discrete bins. Kernel Regression Association aims to
+  measure the strength of non-linear, non-monotonic relationship without
+  binning, relying on the *training error* of kernel regression of one
+  variable against the other (and vice versa).
 
