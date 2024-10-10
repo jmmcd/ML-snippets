@@ -6,9 +6,7 @@
 
 __pycache__/
 
-results/
+DBOCC/results/
 
-data/private_data/
-
-data/private_data/actigraphydata/
+DBOCC/private_data/
 
