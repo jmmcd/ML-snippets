@@ -65,3 +65,8 @@ Contents:
   binning, relying on the *training error* of kernel regression of one
   variable against the other (and vice versa).
 
+* [Metric Distortion](Metric_Distortion): This .py file presents an approach to
+  measuring *metric distortion*. Suppose we have metric spaces X and Y and a mapping f: X -> Y.The metric distortion is a measure of how well f preserves structure, in particular
+  how well it preserves distances. If d_X(x1, x2) = d_Y(f(x1), f(x2)) for all x1, x2 in X,
+  for some distance d, then f preserves structure perfectly so there is low metric distortion. 
+
