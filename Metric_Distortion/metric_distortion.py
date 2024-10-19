@@ -109,7 +109,7 @@ def metric_distortion(X, Y, epsilon=10**-8, sample=None):
 def get_distances(X, Y, sample=None):
     # helper function to get paired distance values in X and in Y
     # either *all of them* if X and Y are small, else a sample
-    # (the *same* sample in both cases)
+    # of pairs.
     if sample is None: # calculate all pairwise distances
         d_X = pdist(X)
         d_Y = pdist(Y)
