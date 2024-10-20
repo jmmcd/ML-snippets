@@ -137,10 +137,11 @@ def get_distances(X, Y, sample=None):
         d_Y = np.array(d_Y)
     return d_X, d_Y   
 
-def metric_distortion_test_report(X, Y, sample, print_dataset=False):
+def metric_distortion_test_report(X, Y, sample, plot_filename=None, print_dataset=False):
     if print_dataset:
         print(X)
         print(Y)
+
     print("no sampling")
     alpha, r, R, R_pvalue, tau, tau_pvalue = metric_distortion(X, Y)
     print(f"alpha: {alpha}, r: {r}, R: {R}, R p-value: {R_pvalue}, tau: {tau}, tau_pvalue: {tau_pvalue}")
@@ -149,30 +150,43 @@ def metric_distortion_test_report(X, Y, sample, print_dataset=False):
     alpha, r, R, R_pvalue, tau, tau_pvalue = metric_distortion(X, Y, sample=sample)
     print(f"alpha: {alpha}, r: {r}, R: {R}, R p-value: {R_pvalue}, tau: {tau}, tau_pvalue: {tau_pvalue}")
     print("")
+    if plot_filename is not None:
+        plot_distances(*get_distances(X, Y), alpha, r, R, tau, plot_filename)
+
+
     
+def plot_distances(dx, dy, alpha, r, R, tau, filename):
+    import matplotlib.pyplot as plt
+    plt.scatter(dx, dy)
+    plt.xlabel(r"$d_X$")
+    plt.ylabel(r"$d_Y$")
+    plt.title(f'alpha {alpha:.2f} r {r:.2f} R {R:.2f} tau {tau:.2f}')
+    plt.savefig(filename)
+    plt.close()
 
+def test():
+    # several tiny datasets: compare all against all
+    # 6 points, 3 dimensions, but 3rd dim is 0
+    X1 = np.array([[0, 0, 0], [0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0.5, 0.5, 0]])
+    # same points, but discard 3rd dimension
+    X2 = X1[:, :2]
+    # same points scaled
+    X3 = 1000 * X2
+    # totally different points, in 1D
+    X4 = np.array([[10, 9, 8, 7, 6, 5]]).T
+    for i, x1 in enumerate((X1, X2, X3, X4)):
+        for j, x2 in enumerate((X1, X2, X3, X4)):
+            metric_distortion_test_report(x1, x2, sample=0.5, plot_filename=f"test_{i}_{j}.png", print_dataset=True)
 
-# TESTS
+    # another test
+    n = 1000
+    dx = 5
+    dy = 3
+    sigma = 0.01
+    print(f"sampling X as {n} points in {dx} dimensions, then making Y by throwing away {dx - dy} dimensions and adding {sigma} noise")
+    X = np.random.random((n, dx))
+    Y = X[:, :dy] + sigma * np.random.random((n, dy))
+    metric_distortion_test_report(X, Y, sample=0.01, plot_filename="second_test.png", print_dataset=False)
 
-# several tiny datasets: compare all against all
-# 6 points, 3 dimensions, but 3rd dim is 0
-X1 = np.array([[0, 0, 0], [0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0.5, 0.5, 0]])
-# same points, but discard 3rd dimension
-X2 = X1[:, :2]
-# same points scaled
-X3 = 1000 * X2
-# totally different points, in 1D
-X4 = np.array([[10, 9, 8, 7, 6, 5]]).T
-for x1 in (X1, X2, X3, X4):
-    for x2 in (X1, X2, X3, X4):
-        metric_distortion_test_report(x1, x2, sample=0.5, print_dataset=True)
-
-# another test
-n = 1000
-dx = 5
-dy = 3
-sigma = 0.01
-print(f"sampling X as {n} points in {dx} dimensions, then making Y by throwing away {dx - dy} dimensions and adding {sigma} noise")
-X = np.random.random((n, dx))
-Y = X[:, :dy] + sigma * np.random.random((n, dy))
-metric_distortion_test_report(X, Y, sample=0.01, print_dataset=False)
+if __name__ == '__main__':
+    test()
